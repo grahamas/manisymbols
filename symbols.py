@@ -67,6 +67,8 @@ class OpExpression(Expression):
             add the "old" operand to the new list.
         """
         # This should be refactored, so that Op has most of this machinery
+        # Should be an identical call to differentiate. Which is itself
+        # suspicious...
         l_new_opds = [self.l_operands[0]]  # opd is operand
         for old_opd in self.l_operands[1:]:
             combined_opd = None
@@ -80,6 +82,9 @@ class OpExpression(Expression):
                 l_new_opds[i_combined] = combined_opd
             else:
                 l_new_opds += [old_opd]
+
+    def differentiate(self):
+        return self.op.differentiate(self.l_operands)
 
 
 class Op(ABC):
@@ -96,7 +101,7 @@ class Op(ABC):
         pass
 
     @abstractmethod
-    def derivative(*l_operands):
+    def differentiate(l_operands):
         pass
 
 
@@ -118,7 +123,7 @@ class SumOp(Op):
             return None
 
     @staticmethod
-    def derivative(*l_operands):
+    def differentiate(l_operands):
         return OpExpression(SumOp,
                             map(lambda x: x.derivative(), l_operands))
 
@@ -142,13 +147,49 @@ class MultOp(Op):
             return None
 
     @staticmethod
-    def derivative(*l_operands):
+    def differentiate(l_operands):
         l_new_opds = [[opd.copy() for opd in l_operands] for x in l_operands]
         l_prod_exprs = []
         for dx in range(len(l_operands)):
             l_new_opds[dx][dx] = l_new_opds[dx][dx].derivative()
             l_prod_exprs += [OpExpression(MultOp, l_new_opds[dx])]
         return OpExpression(SumOp, l_prod_exprs)
+
+
+class DifferentialOp(Op):
+    """
+        This Op takes two arguments: an operand and a "power", which is to say
+        the number of times to apply the derivative.
+
+        Eventually should have ability to take partial derivative w.r.t.
+        different variables.
+    """
+
+    # def __init__(self, variable):
+    #     self.variable = variable
+
+    # def string(self):
+    #     return "\delta_\{ {}\}".format(self.variable)
+
+    def string(self):
+        return "\delta"
+
+    @staticmethod
+    def apply(*l_operands):
+        assert len(l_operands) == 2
+        diff_opd = l_operands[0]
+        num_diffs = l_operands[1]
+        for i in range(num_diffs):
+            diff_opd = diff_opd.differentiate()
+        return diff_opd
+
+    @staticmethod
+    def differentiate(l_operands):
+        assert len(l_operands) == 2
+        diff_opd = l_operands[0]
+        num_diffs = l_operands[1]
+        return OpExpression(DifferentialOp,
+                            [diff_opd, num_diffs + 1])
 
 
 class Function(Expression):
