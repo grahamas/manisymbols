@@ -1,0 +1,2 @@
+# manisymbols
+Manipulate mathematical symbols
